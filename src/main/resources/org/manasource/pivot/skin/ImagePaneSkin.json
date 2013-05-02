@@ -1,0 +1,10 @@
+{
+	dye: {
+		loadImage: "Load Dyeable Image",
+		clearImage: "Clear Dyeable Image",	
+	},
+	ref: {
+		loadImage: "Load Reference Image",
+		clearImage: "Clear Reference Image"
+	}
+}
