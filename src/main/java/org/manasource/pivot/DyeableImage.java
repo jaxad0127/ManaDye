@@ -24,6 +24,7 @@ import java.awt.image.BufferedImage;
 
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.pivot.wtk.media.Image;
+import org.apache.pivot.wtk.media.ImageListener;
 import org.manasource.util.Dye;
 import org.manasource.util.ImageUtils;
 
@@ -79,6 +80,9 @@ public class DyeableImage extends Image {
 		this.dye = dye;
 		this.needsRedye = true;
 		getDyeChangeListeners().dyeChanged( this, dye );
+		for ( ImageListener listener : getImageListeners() ) {
+			listener.regionUpdated( this, 0, 0, getWidth(), getHeight() );
+		}
 	}
 
 	/**
