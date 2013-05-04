@@ -19,21 +19,29 @@
 
 package org.manasource.pivot;
 
-import org.apache.pivot.util.ListenerList;
+import org.apache.pivot.wtk.Component;
+import org.apache.pivot.wtk.ComponentMouseButtonListener;
+import org.apache.pivot.wtk.Mouse;
+import org.apache.pivot.wtk.TextArea;
+import org.apache.pivot.wtk.TextInput;
 
-public interface ResourceKeyChangeListener {
+/**
+ * Mouse listener that pastes into {@link TextInput}s and {@link TextArea}s on
+ * middle-click.
+ */
+public class MiddleClickPasteListener extends ComponentMouseButtonListener.Adapter {
 
-	public class ResourceKeyChangeListenerList extends ListenerList< ResourceKeyChangeListener > implements ResourceKeyChangeListener {
-
-		@Override
-		public void resourceKeyChanged( Object source, String oldKey, String newKey ) {
-			for ( ResourceKeyChangeListener listener : this ) {
-				listener.resourceKeyChanged( source, oldKey, newKey );
+	@Override
+	public boolean mouseClick( Component component, Mouse.Button button, int x, int y, int count ) {
+		if ( button == Mouse.Button.MIDDLE ) {
+			if ( component instanceof TextInput ) {
+				( (TextInput) component ).paste();
+			} else if ( component instanceof TextArea ) {
+				( (TextArea) component ).paste();
+				return true;
 			}
 		}
 
+		return false;
 	}
-
-	public void resourceKeyChanged( Object source, String oldKey, String newKey );
-
 }

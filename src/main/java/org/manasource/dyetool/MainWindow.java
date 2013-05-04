@@ -32,6 +32,8 @@ import org.apache.pivot.wtk.Form;
 import org.apache.pivot.wtk.TextInput;
 import org.apache.pivot.wtk.Window;
 import org.manasource.pivot.ImagePane;
+import org.manasource.pivot.MiddleClickPasteListener;
+import org.manasource.pivot.TextContextMenu;
 import org.manasource.util.Dye;
 
 /**
@@ -72,5 +74,7 @@ public class MainWindow extends Window implements Bindable {
 	public void initialize( Map< String, Object > namespace, URL location, Resources resources ) {
 		this.applyDyeButton.setAction( this.applyDye );
 		this.form.setMinimumHeight( this.form.getPreferredHeight() );
+		this.dyeStringInput.getComponentMouseButtonListeners().add( new MiddleClickPasteListener() );
+		this.dyeStringInput.setMenuHandler( new TextContextMenu() );
 	}
 }
