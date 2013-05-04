@@ -19,25 +19,36 @@
 
 package org.manasource.pivot.skin;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 
 import org.apache.pivot.beans.BXML;
 import org.apache.pivot.beans.BXMLSerializer;
 import org.apache.pivot.collections.Map;
+import org.apache.pivot.io.FileList;
 import org.apache.pivot.serialization.SerializationException;
 import org.apache.pivot.util.Resources;
 import org.apache.pivot.wtk.Action;
 import org.apache.pivot.wtk.CardPane;
 import org.apache.pivot.wtk.Component;
+import org.apache.pivot.wtk.DragSource;
+import org.apache.pivot.wtk.DropAction;
+import org.apache.pivot.wtk.DropTarget;
 import org.apache.pivot.wtk.FileBrowserSheet;
 import org.apache.pivot.wtk.FileBrowserSheet.Mode;
 import org.apache.pivot.wtk.ImageView;
+import org.apache.pivot.wtk.LocalManifest;
+import org.apache.pivot.wtk.Manifest;
 import org.apache.pivot.wtk.Menu;
 import org.apache.pivot.wtk.MenuHandler;
+import org.apache.pivot.wtk.Point;
 import org.apache.pivot.wtk.PushButton;
 import org.apache.pivot.wtk.Sheet;
 import org.apache.pivot.wtk.SheetCloseListener;
+import org.apache.pivot.wtk.Visual;
+import org.apache.pivot.wtk.media.Image;
+import org.apache.pivot.wtk.media.Picture;
 import org.apache.pivot.wtk.skin.ContainerSkin;
 import org.manasource.dyetool.ImageFilter;
 import org.manasource.pivot.DyeableImage;
@@ -78,6 +89,7 @@ public class ImagePaneSkin extends ContainerSkin implements DyeChangeListener, R
 			fileBrowserSheet.setMode( Mode.OPEN );
 			fileBrowserSheet.setDisabledFileFilter( new ImageFilter() );
 			fileBrowserSheet.setTitle( "Load Image" );
+			fileBrowserSheet.getStyles().put( "hideDisabledFiles", true );
 
 			fileBrowserSheet.open( source.getWindow(), new SheetCloseListener() {
 
@@ -87,16 +99,7 @@ public class ImagePaneSkin extends ContainerSkin implements DyeChangeListener, R
 						FileBrowserSheet fileBrowserSheet = (FileBrowserSheet) sheet;
 						File selectedFile = fileBrowserSheet.getSelectedFile();
 
-						try {
-							ImagePaneSkin.this.image = new DyeableImage( ImageUtils.getImage( selectedFile ) );
-							ImagePaneSkin.this.image.setDye( getImagePane().getDye() );
-						} catch ( IOException e ) {
-							e.printStackTrace();
-							ImagePaneSkin.this.image = null;
-						}
-
-						ImagePaneSkin.this.imageView.setImage( ImagePaneSkin.this.image );
-						ImagePaneSkin.this.cardPane.setSelectedIndex( 1 );
+						setFile( selectedFile );
 					}
 				}
 			} );
@@ -118,7 +121,7 @@ public class ImagePaneSkin extends ContainerSkin implements DyeChangeListener, R
 		}
 	};
 
-	private MenuHandler menuHandler = new MenuHandler.Adapter() {
+	private final MenuHandler menuHandler = new MenuHandler.Adapter() {
 
 		@Override
 		public boolean configureContextMenu( Component component, Menu menu, int x, int y ) {
@@ -131,17 +134,143 @@ public class ImagePaneSkin extends ContainerSkin implements DyeChangeListener, R
 
 			menuSection.add( loadReferenceImage );
 
-			if ( ImagePaneSkin.this.cardPane.getSelectedIndex() == 1 ) {
+			Menu.Item clearReferenceImage = new Menu.Item( getResource( "clearImage" ) );
+			clearReferenceImage.setAction( ImagePaneSkin.this.clearImage );
+			ImagePaneSkin.this.clearImage.setEnabled( hasImage() );
 
-				Menu.Item clearReferenceImage = new Menu.Item( getResource( "clearImage" ) );
-				clearReferenceImage.setAction( ImagePaneSkin.this.clearImage );
-
-				menuSection.add( clearReferenceImage );
-			}
+			menuSection.add( clearReferenceImage );
 
 			return false;
 		}
 	};
+
+	private final DragSource dragSource = new DragSource() {
+
+		@Override
+		public boolean beginDrag( Component component, int x, int y ) {
+			return hasImage();
+		}
+
+		@Override
+		public void endDrag( Component component, DropAction dropAction ) {
+			// no-op
+		}
+
+		@Override
+		public boolean isNative() {
+			return true;
+		}
+
+		@Override
+		public LocalManifest getContent() {
+			LocalManifest content = new LocalManifest();
+			Image img = ImagePaneSkin.this.imageView.getImage();
+			if ( img instanceof Picture ) {
+				content.putImage( img );
+			} else if ( img instanceof DyeableImage ) {
+				content.putImage( new Picture( ( (DyeableImage) img ).getCache() ) );
+			}
+
+			return content;
+		}
+
+		@Override
+		public Visual getRepresentation() {
+			// Not used for native drags
+			return null;
+		}
+
+		@Override
+		public Point getOffset() {
+			// Not used for native drags
+			return null;
+		}
+
+		@Override
+		public int getSupportedDropActions() {
+			return DropAction.COPY.getMask();
+		}
+	};
+
+	private final DropTarget dropTarget = new DropTarget() {
+
+		private DropAction isSupported( Manifest dragContent ) {
+			if ( dragContent.containsFileList() || dragContent.containsImage() ) {
+				return DropAction.COPY;
+			}
+
+			return null;
+		}
+
+		@Override
+		public DropAction userDropActionChange( Component component, Manifest dragContent, int supportedDropActions, int x, int y, DropAction userDropAction ) {
+			return isSupported( dragContent );
+		}
+
+		@Override
+		public DropAction drop( Component component, Manifest dragContent, int supportedDropActions, int x, int y, DropAction userDropAction ) {
+			DropAction dropAction = null;
+
+			try {
+				if ( dragContent.containsFileList() ) {
+					FileList list = dragContent.getFileList();
+
+					if ( list.getLength() == 0 ) {
+						return null;
+					} else {
+						setFile( list.get( 0 ) );
+					}
+
+					dropAction = DropAction.COPY;
+				} else if ( dragContent.containsImage() ) {
+					setImage( ImageUtils.copy( dragContent.getImage() ) );
+
+					ImagePaneSkin.this.imageView.setImage( dragContent.getImage() );
+					dropAction = DropAction.COPY;
+				}
+
+				return dropAction;
+			} catch ( IOException e ) {
+				// TODO
+				e.printStackTrace();
+
+				return null;
+			}
+		}
+
+		@Override
+		public DropAction dragMove( Component component, Manifest dragContent, int supportedDropActions, int x, int y, DropAction userDropAction ) {
+			return isSupported( dragContent );
+		}
+
+		@Override
+		public void dragExit( Component component ) {
+			// no-op
+		}
+
+		@Override
+		public DropAction dragEnter( Component component, Manifest dragContent, int supportedDropActions, DropAction userDropAction ) {
+			return isSupported( dragContent );
+		}
+	};
+
+	void setFile( File file ) {
+		try {
+			setImage( ImageUtils.getImage( file ) );
+		} catch ( IOException e ) {
+			// TODO
+			e.printStackTrace();
+		}
+
+	}
+
+	void setImage( BufferedImage image ) {
+		this.image = new DyeableImage( image );
+		this.image.setDye( getImagePane().getDye() );
+
+		this.imageView.setImage( this.image );
+		this.cardPane.setSelectedIndex( 1 );
+	}
 
 	ImagePane getImagePane() {
 		return (ImagePane) getComponent();
@@ -154,6 +283,10 @@ public class ImagePaneSkin extends ContainerSkin implements DyeChangeListener, R
 		Map map = (Map) obj;
 
 		return map.get( key );
+	}
+
+	boolean hasImage() {
+		return this.cardPane.getSelectedIndex() == 1;
 	}
 
 	@Override
@@ -185,6 +318,8 @@ public class ImagePaneSkin extends ContainerSkin implements DyeChangeListener, R
 
 		bxmlSerializer.bind( this, ImagePaneSkin.class );
 
+		this.cardPane.setDragSource( this.dragSource );
+		this.cardPane.setDropTarget( this.dropTarget );
 		this.cardPane.setMenuHandler( this.menuHandler );
 		this.loadButton.setAction( this.loadImage );
 	}
@@ -211,7 +346,7 @@ public class ImagePaneSkin extends ContainerSkin implements DyeChangeListener, R
 	}
 
 	@Override
-	public void resourceKeyChanged( Object source, String oldKey, String neyKey ) {
+	public void resourceKeyChanged( Object source, String oldKey, String newKey ) {
 		if ( source == getComponent() ) {
 			this.loadButton.setButtonData( getResource( "loadImage" ) );
 		}

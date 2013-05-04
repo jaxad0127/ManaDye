@@ -32,6 +32,8 @@ import java.io.InputStream;
 
 import javax.imageio.ImageIO;
 
+import org.apache.pivot.wtk.Visual;
+
 /**
  * Utilities for images.
  */
@@ -144,5 +146,19 @@ public class ImageUtils {
 	public static BufferedImage copy( BufferedImage img ) {
 		AffineTransformOp op = new AffineTransformOp( new AffineTransform(), AffineTransformOp.TYPE_BICUBIC );
 		return op.filter( img, null );
+	}
+
+	/**
+	 * Creates a BufferedImage from the given {@link Visual}.
+	 * 
+	 * @param visual the source
+	 * @return the image
+	 */
+	public static BufferedImage copy( Visual visual ) {
+		BufferedImage ret = new BufferedImage( visual.getWidth(), visual.getHeight(), BufferedImage.TYPE_INT_ARGB );
+
+		visual.paint( ret.createGraphics() );
+
+		return ret;
 	}
 }
